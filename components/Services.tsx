@@ -67,9 +67,9 @@ const Services: React.FC = () => {
           ))}
         </div>
         
-        <div className="mt-16 flex justify-center">
+        {/* <div className="mt-16 flex justify-center">
            <img src="info.jpg" alt="Serviços" className="max-w-md w-full rounded-xl border border-[#d4af37]/20 shadow-xl opacity-80" />
-        </div>
+        </div> */}
       </div>
     </section>
   );
