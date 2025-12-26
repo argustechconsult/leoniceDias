@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '@google/genai';
+import emailjs from '@emailjs/browser';
 import { ContactFormData, SubmissionStatus } from '../types';
 
 interface ContactFormProps {
@@ -13,7 +13,7 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
     email: '',
     phone: '',
     subject: '',
-    message: ''
+    message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -23,52 +23,82 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
     onStatusChange(SubmissionStatus.SUBMITTING);
 
     try {
-      // Initialize Gemini to "process" the pain points and simulate a professional acknowledgement
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const prompt = `
-        Analise o seguinte relato de um cliente para uma advogada:
-        Cliente: ${formData.name}
-        E-mail: ${formData.email}
-        Assunto: ${formData.subject}
-        Mensagem/Dor: ${formData.message}
-        
-        Sua tarefa é gerar uma mensagem curta e empática (em português) confirmando o recebimento do caso e garantindo que ele será tratado com prioridade.
-      `;
+      // 1. Send Email via EmailJS
+      const templateParams = {
+        from_name: formData.name,
+        from_email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+      };
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          systemInstruction: "Você é uma secretária virtual de um escritório de advocacia de elite. Seja empático, sério e profissional."
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
+      );
+
+      console.log('Email sent successfully!');
+
+      // 2. (Optional) Keep Gemini processing if API key exists, but don't let it fail the submission
+      if (import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY) {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY,
+          });
+
+          const prompt = `
+            Analise o seguinte relato de um cliente para uma advogada:
+            Cliente: ${formData.name}
+            E-mail: ${formData.email}
+            Assunto: ${formData.subject}
+            Mensagem/Dor: ${formData.message}
+            
+            Sua tarefa é gerar uma mensagem curta e empática (em português) confirmando o recebimento do caso e garantindo que ele será tratado com prioridade.
+          `;
+
+          const response = await ai.models.generateContent({
+            model: 'gemini-1.5-flash',
+            contents: prompt,
+            config: {
+              systemInstruction:
+                'Você é uma secretária virtual de um escritório de advocacia de elite. Seja empático, sério e profissional.',
+            },
+          });
+
+          console.log('Gemini processou o caso:', response.text);
+        } catch (geminiError) {
+          console.warn('Gemini processing skipped or failed:', geminiError);
         }
-      });
+      }
 
-      console.log("Gemini processou o caso:", response.text);
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       onStatusChange(SubmissionStatus.SUCCESS);
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
-      console.error("Error submitting form:", error);
+      console.error('Error submitting form:', error);
       onStatusChange(SubmissionStatus.ERROR);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nome Completo</label>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Nome Completo
+          </label>
           <input
             required
             type="text"
@@ -80,7 +110,9 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Seu E-mail</label>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Seu E-mail
+          </label>
           <input
             required
             type="email"
@@ -92,10 +124,12 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
           />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Telefone/WhatsApp</label>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Telefone/WhatsApp
+          </label>
           <input
             required
             type="text"
@@ -107,7 +141,9 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Área de Interesse</label>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Área de Interesse
+          </label>
           <select
             required
             name="subject"
@@ -125,7 +161,9 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Conte seu caso (Seu desabafo)</label>
+        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Conte seu caso (Seu desabafo)
+        </label>
         <textarea
           required
           name="message"
@@ -142,11 +180,14 @@ const ContactForm: React.FC<ContactFormProps> = ({ onStatusChange }) => {
         disabled={isSubmitting}
         className="w-full py-4 gold-gradient text-black font-bold rounded-lg uppercase tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#d4af37]/20"
       >
-        {isSubmitting ? 'Enviando sua história...' : 'Enviar para Dra. Leonice Dias'}
+        {isSubmitting
+          ? 'Enviando sua história...'
+          : 'Enviar para Dra. Leonice Dias'}
       </button>
-      
+
       <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest">
-        Sua privacidade é nossa prioridade. Todos os dados são tratados sob sigilo profissional.
+        Sua privacidade é nossa prioridade. Todos os dados são tratados sob
+        sigilo profissional.
       </p>
     </form>
   );
